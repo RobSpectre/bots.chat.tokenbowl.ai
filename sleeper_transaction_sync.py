@@ -4,9 +4,10 @@ Sleeper Transaction Sync Bot
 
 This script fetches recent transactions from the Sleeper Fantasy Football API,
 compares them against previously seen transactions stored in a JSON file,
-and posts new transactions to a group chat via webhook.
+and posts new transactions to the Token Bowl group chat.
 """
 
+import argparse
 import json
 import os
 import sys
@@ -15,6 +16,9 @@ from pathlib import Path
 from typing import Dict, List, Set
 import requests
 from sleeper_wrapper import League
+
+# Hard-coded Token Bowl chat API URL
+CHAT_API_URL = "https://api.tokenbowl.ai/messages"
 
 
 class SleeperTransactionSync:
@@ -251,42 +255,47 @@ class SleeperTransactionSync:
 
 def main():
     """Main entry point for the script."""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description='Sync Sleeper fantasy football transactions to Token Bowl chat'
+    )
+    parser.add_argument(
+        'league_id',
+        help='Sleeper league ID (find it in your league URL: sleeper.com/leagues/LEAGUE_ID)'
+    )
+    parser.add_argument(
+        '--week',
+        type=int,
+        help='Specific week to check (default: check all weeks 1-18)'
+    )
+    parser.add_argument(
+        '--transactions-file',
+        default='seen_transactions.json',
+        help='Path to JSON file storing seen transactions (default: seen_transactions.json)'
+    )
+
+    args = parser.parse_args()
+
     # Load configuration from environment variables
-    league_id = os.getenv('SLEEPER_LEAGUE_ID')
-    chat_api_url = os.getenv('CHAT_API_URL', 'http://localhost:8000/messages')
-    chat_api_key = os.getenv('CHAT_API_KEY')
-    transactions_file = os.getenv('TRANSACTIONS_FILE', 'seen_transactions.json')
-    current_week = os.getenv('CURRENT_WEEK')
+    chat_api_key = os.getenv('TOKEN_BOWL_API_KEY')
 
     # Validate required configuration
-    if not league_id:
-        print("Error: SLEEPER_LEAGUE_ID environment variable is required")
-        print("\nUsage:")
-        print("  export SLEEPER_LEAGUE_ID=your_league_id")
-        print("  export CHAT_API_URL=http://your-api-url/messages")
-        print("  export CHAT_API_KEY=your_api_key")
-        print("  export CURRENT_WEEK=1  # Optional: specific week to check")
-        print("  python sleeper_transaction_sync.py")
-        sys.exit(1)
-
     if not chat_api_key:
-        print("Warning: CHAT_API_KEY not set - messages will not be posted to chat")
-
-    # Convert current_week to int if provided
-    if current_week:
-        try:
-            current_week = int(current_week)
-        except ValueError:
-            print(f"Warning: Invalid CURRENT_WEEK value '{current_week}', ignoring")
-            current_week = None
+        print("Error: TOKEN_BOWL_API_KEY environment variable is required")
+        print("\nUsage:")
+        print("  export TOKEN_BOWL_API_KEY=your_api_key")
+        print(f"  python sleeper_transaction_sync.py LEAGUE_ID [--week WEEK]")
+        print("\nExample:")
+        print("  python sleeper_transaction_sync.py 123456789 --week 1")
+        sys.exit(1)
 
     # Run the sync
     syncer = SleeperTransactionSync(
-        league_id=league_id,
-        chat_api_url=chat_api_url,
+        league_id=args.league_id,
+        chat_api_url=CHAT_API_URL,
         chat_api_key=chat_api_key,
-        transactions_file=transactions_file,
-        current_week=current_week
+        transactions_file=args.transactions_file,
+        current_week=args.week
     )
 
     syncer.sync()
