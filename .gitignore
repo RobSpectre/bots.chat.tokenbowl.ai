@@ -151,4 +151,5 @@ cython_debug/
 
 # Bot runtime files
 seen_transactions.json
+seen_injuries.json
 logs/

@@ -78,15 +78,70 @@ Or use systemd timer, GitHub Actions, or any other scheduler.
 
 **Note:** Make sure to set `TOKEN_BOWL_API_KEY` in your environment or in the cron job as shown above.
 
-### 2. News Bot (Coming Soon)
+### 2. Sleeper Injury Alerts Bot
+
+Automatically monitors all players on league rosters for injury status changes and posts alerts to the Token Bowl group chat when players are newly injured, have status updates, or are cleared from the injury report.
+
+**Features:**
+- Fetches all NFL player data from Sleeper API
+- Monitors only players on league rosters (including IR/reserve)
+- Tracks injury status changes (new injuries, status updates, recoveries)
+- Posts formatted alerts with player details and injury information
+- Includes emoji indicators for different injury statuses
+
+**Setup:**
+
+Same as Transaction Sync Bot - install dependencies and set `TOKEN_BOWL_API_KEY`.
+
+**Usage:**
+
+```bash
+python sleeper_injury_alerts.py LEAGUE_ID [options]
+```
+
+**Options:**
+- `--injury-file FILE` - Path to JSON file for storing seen injuries (default: seen_injuries.json)
+
+**Examples:**
+
+```bash
+# Check for injury updates
+python sleeper_injury_alerts.py 123456789
+
+# Use a custom file for tracking injuries
+python sleeper_injury_alerts.py 123456789 --injury-file /path/to/injuries.json
+```
+
+**Injury Status Types:**
+- 🚑 Out
+- ⚠️ Doubtful
+- ❓ Questionable
+- 🏥 IR (Injured Reserve)
+- 📋 PUP (Physically Unable to Perform)
+- 🚫 Suspended
+- 😷 COVID
+- ✅ Cleared/Recovered
+
+**Scheduling:**
+
+Run this bot daily (recommended) or multiple times per day during game weeks:
+
+```bash
+# Check injuries twice daily at 9 AM and 5 PM
+0 9,17 * * * cd /path/to/bots.chat.tokenbowl.ai && export TOKEN_BOWL_API_KEY=your_key && /usr/bin/python3 sleeper_injury_alerts.py 123456789 >> logs/injury_alerts.log 2>&1
+```
+
+**Important Note:** The Sleeper API recommends calling the players endpoint at most once per day. This bot caches nothing and fetches fresh data each run, so avoid running it too frequently.
+
+### 3. News Bot (Coming Soon)
 
 Discovers timely fantasy football news with league-wide impact.
 
-### 3. Predictions Bot (Coming Soon)
+### 4. Predictions Bot (Coming Soon)
 
 Analyzes matchups and predicts winners with detailed breakdowns.
 
-### 4. Trends Bot (Coming Soon)
+### 5. Trends Bot (Coming Soon)
 
 Identifies fascinating trends and storylines in league performance.
 
@@ -95,6 +150,7 @@ Identifies fascinating trends and storylines in league performance.
 ```
 bots.chat.tokenbowl.ai/
 ├── sleeper_transaction_sync.py  # Transaction monitoring bot
+├── sleeper_injury_alerts.py     # Injury alerts bot
 ├── requirements.txt              # Python dependencies
 ├── .env.example                  # Configuration template
 ├── .gitignore                   # Git ignore patterns
