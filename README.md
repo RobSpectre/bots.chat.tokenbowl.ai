@@ -12,8 +12,8 @@ Automatically monitors your Sleeper league for new transactions (trades, waiver 
 - Fetches transactions from Sleeper API
 - Tracks previously seen transactions to avoid duplicates
 - Formats transactions into readable messages
-- Posts new transactions to group chat via webhook
-- Supports Slack, Discord, and other webhook-compatible platforms
+- Posts new transactions to Token Bowl group chat via REST API
+- Supports the Token Bowl chat server (api.tokenbowl.ai)
 
 **Setup:**
 
@@ -25,7 +25,7 @@ pip install -r requirements.txt
 2. Configure environment variables:
 ```bash
 cp .env.example .env
-# Edit .env and add your league ID and webhook URL
+# Edit .env and add your configuration
 ```
 
 3. Run the script:
@@ -38,20 +38,17 @@ python sleeper_transaction_sync.py
 2. Look at the URL: `https://sleeper.com/leagues/YOUR_LEAGUE_ID`
 3. Copy the league ID and add it to your `.env` file
 
-**Setting Up Webhooks:**
+**Setting Up Chat API Access:**
 
-*Slack:*
-1. Go to https://api.slack.com/apps
-2. Create a new app or select existing
-3. Enable "Incoming Webhooks"
-4. Add webhook to your desired channel
-5. Copy the webhook URL to `.env`
-
-*Discord:*
-1. Open your Discord server settings
-2. Go to Integrations → Webhooks
-3. Create a new webhook
-4. Copy the webhook URL to `.env`
+1. Get your Token Bowl chat API endpoint URL (default: `http://localhost:8000/messages`)
+2. Register a bot user with the chat server:
+```bash
+curl -X POST http://your-api-url/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "sleeper-bot", "password": "your_password"}'
+```
+3. The registration response will include your API key
+4. Add the `CHAT_API_URL` and `CHAT_API_KEY` to your `.env` file
 
 **Scheduling:**
 

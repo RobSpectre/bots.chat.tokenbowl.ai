@@ -23,7 +23,8 @@ class SleeperTransactionSync:
     def __init__(
         self,
         league_id: str,
-        webhook_url: str,
+        chat_api_url: str,
+        chat_api_key: str,
         transactions_file: str = "seen_transactions.json",
         current_week: int = None
     ):
@@ -32,12 +33,14 @@ class SleeperTransactionSync:
 
         Args:
             league_id: The Sleeper league ID
-            webhook_url: The webhook URL for posting to group chat
+            chat_api_url: The Token Bowl chat API URL
+            chat_api_key: The API key for authentication
             transactions_file: Path to JSON file storing seen transactions
             current_week: Current week number (if None, will fetch all weeks)
         """
         self.league_id = league_id
-        self.webhook_url = webhook_url
+        self.chat_api_url = chat_api_url
+        self.chat_api_key = chat_api_key
         self.transactions_file = Path(transactions_file)
         self.current_week = current_week
         self.league = League(league_id)
@@ -158,7 +161,7 @@ class SleeperTransactionSync:
 
     def post_to_chat(self, message: str) -> bool:
         """
-        Post a message to the group chat via webhook.
+        Post a message to the Token Bowl group chat.
 
         Args:
             message: The message to post
@@ -167,22 +170,27 @@ class SleeperTransactionSync:
             True if successful, False otherwise
         """
         try:
-            # Format for common webhook formats (Slack, Discord, etc.)
+            # Format for Token Bowl chat API
             payload = {
-                'text': message,
-                'content': message  # Discord uses 'content'
+                'content': message
+            }
+
+            headers = {
+                'X-API-Key': self.chat_api_key,
+                'Content-Type': 'application/json'
             }
 
             response = requests.post(
-                self.webhook_url,
+                self.chat_api_url,
                 json=payload,
+                headers=headers,
                 timeout=10
             )
 
-            if response.status_code in [200, 204]:
+            if response.status_code in [200, 201]:
                 return True
             else:
-                print(f"Error posting to webhook: {response.status_code} - {response.text}")
+                print(f"Error posting to chat API: {response.status_code} - {response.text}")
                 return False
 
         except Exception as e:
@@ -224,14 +232,14 @@ class SleeperTransactionSync:
                 message = self.format_transaction(transaction)
                 print(f"\nPosting transaction:\n{message}")
 
-                if self.webhook_url and self.webhook_url != "YOUR_WEBHOOK_URL_HERE":
+                if self.chat_api_url and self.chat_api_key:
                     success = self.post_to_chat(message)
                     if success:
                         print("✓ Posted successfully")
                     else:
                         print("✗ Failed to post")
                 else:
-                    print("⚠ No webhook URL configured, skipping post")
+                    print("⚠ Chat API not configured, skipping post")
         else:
             print("No new transactions to post")
 
@@ -245,7 +253,8 @@ def main():
     """Main entry point for the script."""
     # Load configuration from environment variables
     league_id = os.getenv('SLEEPER_LEAGUE_ID')
-    webhook_url = os.getenv('WEBHOOK_URL', 'YOUR_WEBHOOK_URL_HERE')
+    chat_api_url = os.getenv('CHAT_API_URL', 'http://localhost:8000/messages')
+    chat_api_key = os.getenv('CHAT_API_KEY')
     transactions_file = os.getenv('TRANSACTIONS_FILE', 'seen_transactions.json')
     current_week = os.getenv('CURRENT_WEEK')
 
@@ -254,10 +263,14 @@ def main():
         print("Error: SLEEPER_LEAGUE_ID environment variable is required")
         print("\nUsage:")
         print("  export SLEEPER_LEAGUE_ID=your_league_id")
-        print("  export WEBHOOK_URL=your_webhook_url")
+        print("  export CHAT_API_URL=http://your-api-url/messages")
+        print("  export CHAT_API_KEY=your_api_key")
         print("  export CURRENT_WEEK=1  # Optional: specific week to check")
         print("  python sleeper_transaction_sync.py")
         sys.exit(1)
+
+    if not chat_api_key:
+        print("Warning: CHAT_API_KEY not set - messages will not be posted to chat")
 
     # Convert current_week to int if provided
     if current_week:
@@ -270,7 +283,8 @@ def main():
     # Run the sync
     syncer = SleeperTransactionSync(
         league_id=league_id,
-        webhook_url=webhook_url,
+        chat_api_url=chat_api_url,
+        chat_api_key=chat_api_key,
         transactions_file=transactions_file,
         current_week=current_week
     )
