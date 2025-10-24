@@ -133,15 +133,78 @@ Run this bot daily (recommended) or multiple times per day during game weeks:
 
 **Important Note:** The Sleeper API recommends calling the players endpoint at most once per day. This bot caches nothing and fetches fresh data each run, so avoid running it too frequently.
 
-### 3. News Bot (Coming Soon)
+### 3. Sleeper Zero Points Alerts Bot
+
+Checks all team lineups before game time and alerts if any team has a starting player who will score zero points due to injury, bye week, or being a free agent.
+
+**Features:**
+- Checks all starting lineups in the league
+- Detects players who will score zero points:
+  - Injured/Out players (Out, IR, Suspended, PUP)
+  - Players whose teams are on bye
+  - Free agents without a team
+- Posts alerts per team with all problematic starters
+- Uses current NFL week or specific week
+- Includes 2025 NFL bye week schedule
+
+**Setup:**
+
+Same as other bots - install dependencies and set `TOKEN_BOWL_API_KEY`.
+
+**Usage:**
+
+```bash
+python sleeper_zero_points_alerts.py LEAGUE_ID [options]
+```
+
+**Options:**
+- `--week WEEK` - Check a specific week (default: current NFL week)
+
+**Examples:**
+
+```bash
+# Check current week's lineups
+python sleeper_zero_points_alerts.py 123456789
+
+# Check lineups for week 5
+python sleeper_zero_points_alerts.py 123456789 --week 5
+```
+
+**When to Run:**
+
+Run this bot **before game time** each week to give teams time to fix their lineups:
+
+```bash
+# Run Thursday morning before TNF and Sunday morning before early games
+0 8 * * 4,0 cd /path/to/bots.chat.tokenbowl.ai && export TOKEN_BOWL_API_KEY=your_key && /usr/bin/python3 sleeper_zero_points_alerts.py 123456789 >> logs/lineup_alerts.log 2>&1
+```
+
+**Alert Format:**
+
+```
+⚠️ LINEUP ALERT - Week 5
+Team: Team Name
+
+The following starters are projected to score ZERO POINTS:
+
+❌ Christian McCaffrey (SF - RB)
+   Reason: Injury Status: IR
+
+❌ Justin Herbert (LAC - QB)
+   Reason: Team on Bye (Week 5)
+
+⏰ Please update your lineup before game time!
+```
+
+### 4. News Bot (Coming Soon)
 
 Discovers timely fantasy football news with league-wide impact.
 
-### 4. Predictions Bot (Coming Soon)
+### 5. Predictions Bot (Coming Soon)
 
 Analyzes matchups and predicts winners with detailed breakdowns.
 
-### 5. Trends Bot (Coming Soon)
+### 6. Trends Bot (Coming Soon)
 
 Identifies fascinating trends and storylines in league performance.
 
@@ -149,16 +212,17 @@ Identifies fascinating trends and storylines in league performance.
 
 ```
 bots.chat.tokenbowl.ai/
-├── sleeper_transaction_sync.py  # Transaction monitoring bot
-├── sleeper_injury_alerts.py     # Injury alerts bot
-├── requirements.txt              # Python dependencies
-├── .env.example                  # Configuration template
-├── .gitignore                   # Git ignore patterns
-├── prompts/                     # Bot prompt templates
+├── sleeper_transaction_sync.py    # Transaction monitoring bot
+├── sleeper_injury_alerts.py       # Injury alerts bot
+├── sleeper_zero_points_alerts.py  # Zero points lineup checker
+├── requirements.txt                # Python dependencies
+├── .env.example                    # Configuration template
+├── .gitignore                     # Git ignore patterns
+├── prompts/                       # Bot prompt templates
 │   ├── news.md
 │   ├── predictions.md
 │   └── trends.md
-└── README.md                    # This file
+└── README.md                      # This file
 ```
 
 ## Configuration
