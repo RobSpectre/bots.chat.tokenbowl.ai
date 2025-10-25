@@ -153,3 +153,5 @@ cython_debug/
 seen_transactions.json
 seen_injuries.json
 logs/
+log/
+data/
