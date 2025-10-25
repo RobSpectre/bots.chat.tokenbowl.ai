@@ -23,13 +23,14 @@ jobs:
 
     - name: Clone or pull latest code
       run: |
-        if [ -d "${{ env.DEPLOY_PATH }}" ]; then
+        if [ -d "${{ env.DEPLOY_PATH }}/.git" ] && git -C ${{ env.DEPLOY_PATH }} remote get-url origin &>/dev/null; then
           echo "Directory exists, pulling latest changes..."
           cd ${{ env.DEPLOY_PATH }}
           git fetch --all
           git reset --hard origin/main
         else
-          echo "Cloning repository..."
+          echo "Cloning repository (removing existing directory if needed)..."
+          rm -rf ${{ env.DEPLOY_PATH }}
           git clone https://github.com/${{ github.repository }}.git ${{ env.DEPLOY_PATH }}
           cd ${{ env.DEPLOY_PATH }}
         fi
