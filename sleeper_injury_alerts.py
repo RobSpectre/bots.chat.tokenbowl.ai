@@ -245,6 +245,12 @@ class SleeperInjuryAlerts:
         """
         print(f"Checking injuries for league {self.league_id}...")
 
+        # Check if this is the first run (data file doesn't exist)
+        is_first_run = not self.injury_file.exists()
+        if is_first_run:
+            print(f"Data file {self.injury_file} does not exist - this is the first run")
+            print("Will initialize tracking without sending alerts")
+
         # Load previously seen injuries
         seen_injuries = self.load_seen_injuries()
         print(f"Loaded {len(seen_injuries)} previously seen injury statuses")
@@ -297,39 +303,44 @@ class SleeperInjuryAlerts:
         print(f"Found {len(new_alerts)} new/updated injuries")
         print(f"Found {len(recovered_players)} recovered players")
 
-        # Post injury alerts
-        if new_alerts:
-            for player_id, injury_info, is_new, old_status in new_alerts:
-                message = self.format_injury_alert(player_id, injury_info, is_new, old_status)
-                print(f"\nPosting injury alert:\n{message}")
-
-                if self.chat_api_url and self.chat_api_key:
-                    success = self.post_to_chat(message)
-                    if success:
-                        print("✓ Posted successfully")
-                    else:
-                        print("✗ Failed to post")
-                else:
-                    print("⚠ Chat API not configured, skipping post")
+        # Skip posting alerts on first run - just initialize the tracking
+        if is_first_run:
+            print("\n⚠ First run detected - initializing injury tracking without sending alerts")
+            print(f"Found {len(current_injuries)} currently injured players to track")
         else:
-            print("No new or updated injuries to report")
+            # Post injury alerts
+            if new_alerts:
+                for player_id, injury_info, is_new, old_status in new_alerts:
+                    message = self.format_injury_alert(player_id, injury_info, is_new, old_status)
+                    print(f"\nPosting injury alert:\n{message}")
 
-        # Post recovery alerts
-        if recovered_players:
-            for player_info in recovered_players:
-                message = f"✅ **PLAYER CLEARED**\n"
-                message += f"{player_info['name']} ({player_info['team']} - {player_info['position']})\n"
-                message += f"Previous status: {player_info['previous_status']}\n"
-                message += "Player no longer listed on injury report"
-
-                print(f"\nPosting recovery alert:\n{message}")
-
-                if self.chat_api_url and self.chat_api_key:
-                    success = self.post_to_chat(message)
-                    if success:
-                        print("✓ Posted successfully")
+                    if self.chat_api_url and self.chat_api_key:
+                        success = self.post_to_chat(message)
+                        if success:
+                            print("✓ Posted successfully")
+                        else:
+                            print("✗ Failed to post")
                     else:
-                        print("✗ Failed to post")
+                        print("⚠ Chat API not configured, skipping post")
+            else:
+                print("No new or updated injuries to report")
+
+            # Post recovery alerts
+            if recovered_players:
+                for player_info in recovered_players:
+                    message = f"✅ **PLAYER CLEARED**\n"
+                    message += f"{player_info['name']} ({player_info['team']} - {player_info['position']})\n"
+                    message += f"Previous status: {player_info['previous_status']}\n"
+                    message += "Player no longer listed on injury report"
+
+                    print(f"\nPosting recovery alert:\n{message}")
+
+                    if self.chat_api_url and self.chat_api_key:
+                        success = self.post_to_chat(message)
+                        if success:
+                            print("✓ Posted successfully")
+                        else:
+                            print("✗ Failed to post")
 
         # Save updated injury statuses
         self.save_seen_injuries(updated_injuries)
@@ -348,6 +359,11 @@ def main():
         help='Sleeper league ID (find it in your league URL: sleeper.com/leagues/LEAGUE_ID)'
     )
     parser.add_argument(
+        '--api-key',
+        required=True,
+        help='Token Bowl API key'
+    )
+    parser.add_argument(
         '--injury-file',
         default='seen_injuries.json',
         help='Path to JSON file storing seen injuries (default: seen_injuries.json)'
@@ -355,18 +371,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Load configuration from environment variables
-    chat_api_key = os.getenv('TOKEN_BOWL_API_KEY')
-
-    # Validate required configuration
-    if not chat_api_key:
-        print("Error: TOKEN_BOWL_API_KEY environment variable is required")
-        print("\nUsage:")
-        print("  export TOKEN_BOWL_API_KEY=your_api_key")
-        print(f"  python sleeper_injury_alerts.py LEAGUE_ID")
-        print("\nExample:")
-        print("  python sleeper_injury_alerts.py 123456789")
-        sys.exit(1)
+    chat_api_key = args.api_key
 
     # Run the injury check
     checker = SleeperInjuryAlerts(

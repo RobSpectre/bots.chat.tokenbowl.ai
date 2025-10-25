@@ -207,6 +207,12 @@ class SleeperTransactionSync:
         """
         print(f"Starting transaction sync for league {self.league_id}...")
 
+        # Check if this is the first run (data file doesn't exist)
+        is_first_run = not self.transactions_file.exists()
+        if is_first_run:
+            print(f"Data file {self.transactions_file} does not exist - this is the first run")
+            print("Will initialize tracking without sending alerts")
+
         # Load previously seen transactions
         seen_transactions = self.load_seen_transactions()
         print(f"Loaded {len(seen_transactions)} previously seen transactions")
@@ -230,22 +236,27 @@ class SleeperTransactionSync:
 
         print(f"Found {len(new_transactions)} new transactions")
 
-        # Post new transactions to chat
-        if new_transactions:
-            for transaction in new_transactions:
-                message = self.format_transaction(transaction)
-                print(f"\nPosting transaction:\n{message}")
-
-                if self.chat_api_url and self.chat_api_key:
-                    success = self.post_to_chat(message)
-                    if success:
-                        print("✓ Posted successfully")
-                    else:
-                        print("✗ Failed to post")
-                else:
-                    print("⚠ Chat API not configured, skipping post")
+        # Skip posting alerts on first run - just initialize the tracking
+        if is_first_run:
+            print("\n⚠ First run detected - initializing transaction tracking without sending alerts")
+            print(f"Found {len(all_transaction_ids)} transactions to track")
         else:
-            print("No new transactions to post")
+            # Post new transactions to chat
+            if new_transactions:
+                for transaction in new_transactions:
+                    message = self.format_transaction(transaction)
+                    print(f"\nPosting transaction:\n{message}")
+
+                    if self.chat_api_url and self.chat_api_key:
+                        success = self.post_to_chat(message)
+                        if success:
+                            print("✓ Posted successfully")
+                        else:
+                            print("✗ Failed to post")
+                    else:
+                        print("⚠ Chat API not configured, skipping post")
+            else:
+                print("No new transactions to post")
 
         # Update seen transactions
         self.save_seen_transactions(all_transaction_ids)
@@ -264,6 +275,11 @@ def main():
         help='Sleeper league ID (find it in your league URL: sleeper.com/leagues/LEAGUE_ID)'
     )
     parser.add_argument(
+        '--api-key',
+        required=True,
+        help='Token Bowl API key'
+    )
+    parser.add_argument(
         '--week',
         type=int,
         help='Specific week to check (default: check all weeks 1-18)'
@@ -276,18 +292,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Load configuration from environment variables
-    chat_api_key = os.getenv('TOKEN_BOWL_API_KEY')
-
-    # Validate required configuration
-    if not chat_api_key:
-        print("Error: TOKEN_BOWL_API_KEY environment variable is required")
-        print("\nUsage:")
-        print("  export TOKEN_BOWL_API_KEY=your_api_key")
-        print(f"  python sleeper_transaction_sync.py LEAGUE_ID [--week WEEK]")
-        print("\nExample:")
-        print("  python sleeper_transaction_sync.py 123456789 --week 1")
-        sys.exit(1)
+    chat_api_key = args.api_key
 
     # Run the sync
     syncer = SleeperTransactionSync(

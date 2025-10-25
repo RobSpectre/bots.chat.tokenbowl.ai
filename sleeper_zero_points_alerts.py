@@ -12,6 +12,7 @@ import json
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Set, Tuple
 import requests
 from sleeper_wrapper import League, Players
@@ -45,7 +46,8 @@ class SleeperZeroPointsAlerts:
         league_id: str,
         chat_api_url: str,
         chat_api_key: str,
-        week: int = None
+        week: int = None,
+        alerts_file: str = "seen_alerts.json"
     ):
         """
         Initialize the zero points alerts.
@@ -55,13 +57,57 @@ class SleeperZeroPointsAlerts:
             chat_api_url: The Token Bowl chat API URL
             chat_api_key: The API key for authentication
             week: Specific week to check (if None, uses current week)
+            alerts_file: Path to JSON file storing sent alerts
         """
         self.league_id = league_id
         self.chat_api_url = chat_api_url
         self.chat_api_key = chat_api_key
         self.target_week = week
+        self.alerts_file = Path(alerts_file)
         self.league = League(league_id)
         self.players_api = Players()
+
+    def load_seen_alerts(self) -> Dict[str, Set[int]]:
+        """
+        Load previously sent alerts from JSON file.
+
+        Returns:
+            Dict mapping "week_roster_id" to set of player IDs already alerted
+        """
+        if not self.alerts_file.exists():
+            return {}
+
+        try:
+            with open(self.alerts_file, 'r') as f:
+                data = json.load(f)
+                # Convert lists back to sets
+                alerts = {}
+                for key, player_ids in data.get('alerts', {}).items():
+                    alerts[key] = set(player_ids)
+                return alerts
+        except json.JSONDecodeError:
+            print(f"Warning: Could not parse {self.alerts_file}, starting fresh")
+            return {}
+
+    def save_seen_alerts(self, alerts: Dict[str, Set[int]]):
+        """
+        Save sent alerts to JSON file.
+
+        Args:
+            alerts: Dict mapping "week_roster_id" to set of player IDs
+        """
+        # Convert sets to lists for JSON serialization
+        alerts_serializable = {}
+        for key, player_ids in alerts.items():
+            alerts_serializable[key] = list(player_ids)
+
+        data = {
+            'alerts': alerts_serializable,
+            'last_updated': datetime.now().isoformat()
+        }
+
+        with open(self.alerts_file, 'w') as f:
+            json.dump(data, f, indent=2)
 
     def get_nfl_state(self) -> Dict:
         """
@@ -169,7 +215,7 @@ class SleeperZeroPointsAlerts:
             return True, "Free Agent - No Team"
 
         # Check if player is injured/out
-        injury_status = player_data.get('injury_status', '').strip()
+        injury_status = (player_data.get('injury_status') or '').strip()
         if injury_status in ZERO_POINT_STATUSES:
             return True, f"Injury Status: {injury_status}"
 
@@ -313,6 +359,15 @@ class SleeperZeroPointsAlerts:
         """
         print(f"Checking lineups for league {self.league_id}...")
 
+        # Check if this is the first run (data file doesn't exist)
+        is_first_run = not self.alerts_file.exists()
+        if is_first_run:
+            print(f"Data file {self.alerts_file} does not exist - this is the first run")
+            print("Will initialize tracking without sending alerts")
+
+        # Load previously sent alerts
+        seen_alerts = self.load_seen_alerts()
+
         # Get current week
         week = self.get_current_week()
 
@@ -351,24 +406,58 @@ class SleeperZeroPointsAlerts:
         print(f"\nFound {len(teams_with_issues)} teams with lineup issues")
         print(f"Total zero-point starters: {len(all_issues)}")
 
-        # Post alerts
-        if teams_with_issues:
-            for roster_id, team_issues in teams_with_issues.items():
-                message = self.format_alert(team_issues, week)
-                print(f"\nPosting alert:\n{message}\n")
-
-                if self.chat_api_url and self.chat_api_key:
-                    success = self.post_to_chat(message)
-                    if success:
-                        print("✓ Posted successfully")
-                    else:
-                        print("✗ Failed to post")
-                else:
-                    print("⚠ Chat API not configured, skipping post")
+        # Skip posting alerts on first run - just initialize the tracking
+        if is_first_run:
+            print("\n⚠ First run detected - initializing alert tracking without sending alerts")
+            print(f"Found {len(all_issues)} lineup issues to track")
+            # Initialize seen_alerts with all current issues
+            for issue in all_issues:
+                key = f"{week}_{issue['roster_id']}"
+                if key not in seen_alerts:
+                    seen_alerts[key] = set()
+                seen_alerts[key].add(issue['player_id'])
         else:
-            print("\n✅ All teams have valid lineups - no alerts needed!")
+            # Filter out alerts that have already been sent for this week/roster
+            new_teams_with_issues = {}
+            for roster_id, team_issues in teams_with_issues.items():
+                key = f"{week}_{roster_id}"
+                already_alerted = seen_alerts.get(key, set())
 
-        print("\nLineup check complete!")
+                # Only include issues for players we haven't alerted on yet
+                new_issues = [issue for issue in team_issues if issue['player_id'] not in already_alerted]
+
+                if new_issues:
+                    new_teams_with_issues[roster_id] = new_issues
+                    # Track these as alerted
+                    if key not in seen_alerts:
+                        seen_alerts[key] = set()
+                    for issue in new_issues:
+                        seen_alerts[key].add(issue['player_id'])
+
+            # Post alerts for new issues
+            if new_teams_with_issues:
+                for roster_id, team_issues in new_teams_with_issues.items():
+                    message = self.format_alert(team_issues, week)
+                    print(f"\nPosting alert:\n{message}\n")
+
+                    if self.chat_api_url and self.chat_api_key:
+                        success = self.post_to_chat(message)
+                        if success:
+                            print("✓ Posted successfully")
+                        else:
+                            print("✗ Failed to post")
+                    else:
+                        print("⚠ Chat API not configured, skipping post")
+            else:
+                if teams_with_issues:
+                    print("\n⚠ All lineup issues have already been alerted on - no new alerts to send")
+                else:
+                    print("\n✅ All teams have valid lineups - no alerts needed!")
+
+        # Save updated alerts
+        self.save_seen_alerts(seen_alerts)
+        print(f"\nSaved alert tracking to {self.alerts_file}")
+        print("Lineup check complete!")
 
 
 def main():
@@ -382,32 +471,32 @@ def main():
         help='Sleeper league ID (find it in your league URL: sleeper.com/leagues/LEAGUE_ID)'
     )
     parser.add_argument(
+        '--api-key',
+        required=True,
+        help='Token Bowl API key'
+    )
+    parser.add_argument(
         '--week',
         type=int,
         help='Specific week to check (default: current NFL week)'
     )
+    parser.add_argument(
+        '--alerts-file',
+        default='seen_alerts.json',
+        help='Path to JSON file storing sent alerts (default: seen_alerts.json)'
+    )
 
     args = parser.parse_args()
 
-    # Load configuration from environment variables
-    chat_api_key = os.getenv('TOKEN_BOWL_API_KEY')
-
-    # Validate required configuration
-    if not chat_api_key:
-        print("Error: TOKEN_BOWL_API_KEY environment variable is required")
-        print("\nUsage:")
-        print("  export TOKEN_BOWL_API_KEY=your_api_key")
-        print(f"  python sleeper_zero_points_alerts.py LEAGUE_ID [--week WEEK]")
-        print("\nExample:")
-        print("  python sleeper_zero_points_alerts.py 123456789 --week 5")
-        sys.exit(1)
+    chat_api_key = args.api_key
 
     # Run the lineup check
     checker = SleeperZeroPointsAlerts(
         league_id=args.league_id,
         chat_api_url=CHAT_API_URL,
         chat_api_key=chat_api_key,
-        week=args.week
+        week=args.week,
+        alerts_file=args.alerts_file
     )
 
     checker.check_lineups()

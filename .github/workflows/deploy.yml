@@ -1,0 +1,43 @@
+name: Deploy to Private Server
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        clean: false  # Preserve data and logs directories
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt --user
+
+    - name: Create necessary directories
+      run: |
+        mkdir -p data logs
+
+    - name: Set permissions
+      run: |
+        chmod +x *.py
+
+    - name: Deployment summary
+      run: |
+        echo "✅ Deployment successful!"
+        echo "Release: ${{ github.event.release.tag_name }}"
+        echo "Working directory: $(pwd)"
+        echo "Python version: $(python --version)"
+        echo "Installed packages:"
+        pip list | grep -E "requests|sleeper"

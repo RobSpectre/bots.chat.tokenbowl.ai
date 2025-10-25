@@ -29,35 +29,37 @@ curl -X POST https://api.tokenbowl.ai/register \
   -d '{"username": "sleeper-bot", "password": "your_password"}'
 ```
 
-3. Set your API key as an environment variable:
-```bash
-export TOKEN_BOWL_API_KEY=your_api_key_from_registration
-```
+Save the API key returned from registration.
 
 **Usage:**
 
 ```bash
-python sleeper_transaction_sync.py LEAGUE_ID [options]
+python sleeper_transaction_sync.py LEAGUE_ID --api-key YOUR_API_KEY [options]
 ```
 
 **Arguments:**
 - `LEAGUE_ID` (required) - Your Sleeper league ID
+- `--api-key` (required) - Your Token Bowl API key from registration
 
 **Options:**
 - `--week WEEK` - Check only a specific week (default: check all weeks 1-18)
 - `--transactions-file FILE` - Path to JSON file for storing seen transactions (default: seen_transactions.json)
 
+**First Run Behavior:**
+
+On the first run (when the data file doesn't exist), the bot will initialize the transaction tracking database without sending any alerts. This prevents spam from alerting on all existing transactions. Subsequent runs will only alert on new transactions.
+
 **Examples:**
 
 ```bash
 # Check all weeks for league 123456789
-python sleeper_transaction_sync.py 123456789
+python sleeper_transaction_sync.py 123456789 --api-key YOUR_API_KEY
 
 # Check only week 5
-python sleeper_transaction_sync.py 123456789 --week 5
+python sleeper_transaction_sync.py 123456789 --api-key YOUR_API_KEY --week 5
 
 # Use a custom file for tracking transactions
-python sleeper_transaction_sync.py 123456789 --transactions-file /path/to/transactions.json
+python sleeper_transaction_sync.py 123456789 --api-key YOUR_API_KEY --transactions-file /path/to/transactions.json
 ```
 
 **Finding Your League ID:**
@@ -71,12 +73,10 @@ To run automatically, set up a cron job:
 
 ```bash
 # Run every hour for league 123456789
-0 * * * * cd /path/to/bots.chat.tokenbowl.ai && export TOKEN_BOWL_API_KEY=your_key && /usr/bin/python3 sleeper_transaction_sync.py 123456789 >> logs/transaction_sync.log 2>&1
+0 * * * * cd /path/to/bots.chat.tokenbowl.ai && /usr/bin/python3 sleeper_transaction_sync.py 123456789 --api-key YOUR_API_KEY >> logs/transaction_sync.log 2>&1
 ```
 
 Or use systemd timer, GitHub Actions, or any other scheduler.
-
-**Note:** Make sure to set `TOKEN_BOWL_API_KEY` in your environment or in the cron job as shown above.
 
 ### 2. Sleeper Injury Alerts Bot
 
@@ -91,25 +91,33 @@ Automatically monitors all players on league rosters for injury status changes a
 
 **Setup:**
 
-Same as Transaction Sync Bot - install dependencies and set `TOKEN_BOWL_API_KEY`.
+Same as Transaction Sync Bot - install dependencies and register for an API key.
 
 **Usage:**
 
 ```bash
-python sleeper_injury_alerts.py LEAGUE_ID [options]
+python sleeper_injury_alerts.py LEAGUE_ID --api-key YOUR_API_KEY [options]
 ```
+
+**Arguments:**
+- `LEAGUE_ID` (required) - Your Sleeper league ID
+- `--api-key` (required) - Your Token Bowl API key
 
 **Options:**
 - `--injury-file FILE` - Path to JSON file for storing seen injuries (default: seen_injuries.json)
+
+**First Run Behavior:**
+
+On the first run (when the data file doesn't exist), the bot will initialize the injury tracking database without sending any alerts. This prevents spam from alerting on all existing injuries. Subsequent runs will only alert on new injuries or status changes.
 
 **Examples:**
 
 ```bash
 # Check for injury updates
-python sleeper_injury_alerts.py 123456789
+python sleeper_injury_alerts.py 123456789 --api-key YOUR_API_KEY
 
 # Use a custom file for tracking injuries
-python sleeper_injury_alerts.py 123456789 --injury-file /path/to/injuries.json
+python sleeper_injury_alerts.py 123456789 --api-key YOUR_API_KEY --injury-file /path/to/injuries.json
 ```
 
 **Injury Status Types:**
@@ -128,7 +136,7 @@ Run this bot daily (recommended) or multiple times per day during game weeks:
 
 ```bash
 # Check injuries twice daily at 9 AM and 5 PM
-0 9,17 * * * cd /path/to/bots.chat.tokenbowl.ai && export TOKEN_BOWL_API_KEY=your_key && /usr/bin/python3 sleeper_injury_alerts.py 123456789 >> logs/injury_alerts.log 2>&1
+0 9,17 * * * cd /path/to/bots.chat.tokenbowl.ai && /usr/bin/python3 sleeper_injury_alerts.py 123456789 --api-key YOUR_API_KEY >> logs/injury_alerts.log 2>&1
 ```
 
 **Important Note:** The Sleeper API recommends calling the players endpoint at most once per day. This bot caches nothing and fetches fresh data each run, so avoid running it too frequently.
@@ -149,25 +157,38 @@ Checks all team lineups before game time and alerts if any team has a starting p
 
 **Setup:**
 
-Same as other bots - install dependencies and set `TOKEN_BOWL_API_KEY`.
+Same as other bots - install dependencies and register for an API key.
 
 **Usage:**
 
 ```bash
-python sleeper_zero_points_alerts.py LEAGUE_ID [options]
+python sleeper_zero_points_alerts.py LEAGUE_ID --api-key YOUR_API_KEY [options]
 ```
+
+**Arguments:**
+- `LEAGUE_ID` (required) - Your Sleeper league ID
+- `--api-key` (required) - Your Token Bowl API key
 
 **Options:**
 - `--week WEEK` - Check a specific week (default: current NFL week)
+- `--alerts-file FILE` - Path to JSON file storing sent alerts (default: seen_alerts.json)
+
+**First Run Behavior:**
+
+On the first run (when the data file doesn't exist), the bot will initialize alert tracking without sending any alerts. This prevents spam from alerting on all existing lineup issues. Subsequent runs will only alert on new issues or issues that weren't previously alerted on.
+
+**Preventing Duplicate Alerts:**
+
+The bot tracks which alerts have been sent for each week, so you can safely run it multiple times before game day without spamming duplicate alerts. Only new lineup issues will trigger alerts.
 
 **Examples:**
 
 ```bash
 # Check current week's lineups
-python sleeper_zero_points_alerts.py 123456789
+python sleeper_zero_points_alerts.py 123456789 --api-key YOUR_API_KEY
 
 # Check lineups for week 5
-python sleeper_zero_points_alerts.py 123456789 --week 5
+python sleeper_zero_points_alerts.py 123456789 --api-key YOUR_API_KEY --week 5
 ```
 
 **When to Run:**
@@ -176,7 +197,7 @@ Run this bot **before game time** each week to give teams time to fix their line
 
 ```bash
 # Run Thursday morning before TNF and Sunday morning before early games
-0 8 * * 4,0 cd /path/to/bots.chat.tokenbowl.ai && export TOKEN_BOWL_API_KEY=your_key && /usr/bin/python3 sleeper_zero_points_alerts.py 123456789 >> logs/lineup_alerts.log 2>&1
+0 8 * * 4,0 cd /path/to/bots.chat.tokenbowl.ai && /usr/bin/python3 sleeper_zero_points_alerts.py 123456789 --api-key YOUR_API_KEY >> logs/lineup_alerts.log 2>&1
 ```
 
 **Alert Format:**
@@ -227,7 +248,90 @@ bots.chat.tokenbowl.ai/
 
 ## Configuration
 
-All bots use environment variables for configuration. See `.env.example` for available options.
+All bots require a Token Bowl API key passed as a CLI argument. Register your bot user at `https://api.tokenbowl.ai/register` to get your API key.
+
+### First Run Behavior
+
+All bots implement intelligent first-run detection. When run for the first time (when their data file doesn't exist), they will:
+- Initialize their tracking database with the current state
+- Skip sending any alerts to avoid spam
+- Save the baseline for future comparisons
+
+On subsequent runs, the bots will only send alerts for new events, changes, or issues that haven't been previously alerted on. This makes it safe to set up the bots without flooding your chat with historical data.
+
+## Deployment
+
+### Automated Deployment with Self-Hosted GitHub Runner
+
+This repository includes a GitHub Actions workflow that automatically deploys when you publish a release. It uses a self-hosted GitHub runner on your private server for direct deployment.
+
+**Setup Steps:**
+
+1. **Set up a self-hosted GitHub runner** (if not already done):
+   - Go to your repository on GitHub
+   - Navigate to Settings → Actions → Runners
+   - Click "New self-hosted runner"
+   - Follow the instructions to install and configure the runner on your server
+
+2. **Configure the runner working directory**:
+   ```bash
+   # The runner should be configured to check out code in your desired location
+   # Example: /home/user/bots.chat.tokenbowl.ai
+   ```
+
+3. **Deploy by creating a release**:
+   - Go to your repository on GitHub
+   - Click "Releases" → "Create a new release"
+   - Choose or create a tag (e.g., `v1.0.0`, `v1.1.0`)
+   - Add release notes describing the changes
+   - Click "Publish release"
+   - The workflow will automatically deploy to your server
+
+   Or use the command line:
+   ```bash
+   # Create and push a tag
+   git tag -a v1.0.0 -m "Release version 1.0.0"
+   git push origin v1.0.0
+
+   # Then create a release from that tag on GitHub
+   ```
+
+   Or manually trigger:
+   - Go to Actions → Deploy to Private Server → Run workflow
+
+**What the workflow does:**
+- Checks out your code directly on the server
+- Preserves data and logs directories (using `clean: false`)
+- Installs/updates Python dependencies
+- Creates necessary directories if they don't exist
+- Sets executable permissions on Python scripts
+
+**After initial setup**, you'll need to:
+- Set up cron jobs manually (see scheduling sections above)
+- Ensure your API key is passed to the scripts via CLI arguments
+
+### Manual Deployment
+
+If you prefer to deploy manually:
+
+```bash
+# SSH into your server
+ssh user@your-server.com
+
+# Clone or pull the repository
+git clone https://github.com/yourusername/bots.chat.tokenbowl.ai.git
+cd bots.chat.tokenbowl.ai
+git pull origin main
+
+# Install dependencies
+pip3 install -r requirements.txt --user
+
+# Create necessary directories
+mkdir -p data logs
+
+# Set up cron jobs (edit with: crontab -e)
+# See bot-specific scheduling sections above
+```
 
 ## Contributing
 
