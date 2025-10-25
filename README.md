@@ -73,7 +73,7 @@ To run automatically, set up a cron job:
 
 ```bash
 # Run every hour for league 123456789
-0 * * * * cd /path/to/bots.chat.tokenbowl.ai && /usr/bin/python3 sleeper_transaction_sync.py 123456789 --api-key YOUR_API_KEY >> logs/transaction_sync.log 2>&1
+0 * * * * cd /path/to/bots.chat.tokenbowl.ai && source .venv/bin/activate && python sleeper_transaction_sync.py 123456789 --api-key YOUR_API_KEY >> logs/transaction_sync.log 2>&1
 ```
 
 Or use systemd timer, GitHub Actions, or any other scheduler.
@@ -136,7 +136,7 @@ Run this bot daily (recommended) or multiple times per day during game weeks:
 
 ```bash
 # Check injuries twice daily at 9 AM and 5 PM
-0 9,17 * * * cd /path/to/bots.chat.tokenbowl.ai && /usr/bin/python3 sleeper_injury_alerts.py 123456789 --api-key YOUR_API_KEY >> logs/injury_alerts.log 2>&1
+0 9,17 * * * cd /path/to/bots.chat.tokenbowl.ai && source .venv/bin/activate && python sleeper_injury_alerts.py 123456789 --api-key YOUR_API_KEY >> logs/injury_alerts.log 2>&1
 ```
 
 **Important Note:** The Sleeper API recommends calling the players endpoint at most once per day. This bot caches nothing and fetches fresh data each run, so avoid running it too frequently.
@@ -197,7 +197,7 @@ Run this bot **before game time** each week to give teams time to fix their line
 
 ```bash
 # Run Thursday morning before TNF and Sunday morning before early games
-0 8 * * 4,0 cd /path/to/bots.chat.tokenbowl.ai && /usr/bin/python3 sleeper_zero_points_alerts.py 123456789 --api-key YOUR_API_KEY >> logs/lineup_alerts.log 2>&1
+0 8 * * 4,0 cd /path/to/bots.chat.tokenbowl.ai && source .venv/bin/activate && python sleeper_zero_points_alerts.py 123456789 --api-key YOUR_API_KEY >> logs/lineup_alerts.log 2>&1
 ```
 
 **Alert Format:**
@@ -263,7 +263,7 @@ On subsequent runs, the bots will only send alerts for new events, changes, or i
 
 ### Automated Deployment with Self-Hosted GitHub Runner
 
-This repository includes a GitHub Actions workflow that automatically deploys when you publish a release. It uses a self-hosted GitHub runner on your private server for direct deployment.
+This repository includes a GitHub Actions workflow that automatically deploys when you push to the `main` branch. It uses a self-hosted GitHub runner on your private server for direct deployment.
 
 **Setup Steps:**
 
@@ -279,21 +279,11 @@ This repository includes a GitHub Actions workflow that automatically deploys wh
    # Example: /home/user/bots.chat.tokenbowl.ai
    ```
 
-3. **Deploy by creating a release**:
-   - Go to your repository on GitHub
-   - Click "Releases" → "Create a new release"
-   - Choose or create a tag (e.g., `v1.0.0`, `v1.1.0`)
-   - Add release notes describing the changes
-   - Click "Publish release"
-   - The workflow will automatically deploy to your server
-
-   Or use the command line:
+3. **Deploy by pushing to main**:
    ```bash
-   # Create and push a tag
-   git tag -a v1.0.0 -m "Release version 1.0.0"
-   git push origin v1.0.0
-
-   # Then create a release from that tag on GitHub
+   git add .
+   git commit -m "Your changes"
+   git push origin main
    ```
 
    Or manually trigger:
@@ -302,13 +292,25 @@ This repository includes a GitHub Actions workflow that automatically deploys wh
 **What the workflow does:**
 - Checks out your code directly on the server
 - Preserves data and logs directories (using `clean: false`)
-- Installs/updates Python dependencies
+- Installs/updates `uv` package manager
+- Creates a virtual environment using `uv venv`
+- Installs Python dependencies with `uv pip install`
 - Creates necessary directories if they don't exist
 - Sets executable permissions on Python scripts
+
+**Using the virtual environment:**
+
+After deployment, activate the virtual environment in your cron jobs:
+
+```bash
+# Example cron job
+0 * * * * cd /path/to/bots.chat.tokenbowl.ai && source .venv/bin/activate && python sleeper_transaction_sync.py 123456789 --api-key YOUR_API_KEY >> logs/transaction_sync.log 2>&1
+```
 
 **After initial setup**, you'll need to:
 - Set up cron jobs manually (see scheduling sections above)
 - Ensure your API key is passed to the scripts via CLI arguments
+- Update cron jobs to use the `.venv/bin/activate` path
 
 ### Manual Deployment
 
@@ -323,13 +325,19 @@ git clone https://github.com/yourusername/bots.chat.tokenbowl.ai.git
 cd bots.chat.tokenbowl.ai
 git pull origin main
 
-# Install dependencies
-pip3 install -r requirements.txt --user
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv .venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
 
 # Create necessary directories
 mkdir -p data logs
 
 # Set up cron jobs (edit with: crontab -e)
+# Remember to activate the venv in your cron jobs!
 # See bot-specific scheduling sections above
 ```
 

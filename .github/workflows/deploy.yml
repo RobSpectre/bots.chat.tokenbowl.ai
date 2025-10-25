@@ -1,8 +1,9 @@
 name: Deploy to Private Server
 
 on:
-  release:
-    types: [published]
+  push:
+    branches:
+      - main
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
@@ -15,10 +16,16 @@ jobs:
       with:
         clean: false  # Preserve data and logs directories
 
-    - name: Install dependencies
+    - name: Install uv
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install -r requirements.txt --user
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Create/update virtual environment
+      run: |
+        uv venv .venv --python python3
+        source .venv/bin/activate
+        uv pip install -r requirements.txt
 
     - name: Create necessary directories
       run: |
@@ -30,9 +37,10 @@ jobs:
 
     - name: Deployment summary
       run: |
+        source .venv/bin/activate
         echo "✅ Deployment successful!"
-        echo "Release: ${{ github.event.release.tag_name }}"
         echo "Working directory: $(pwd)"
-        echo "Python version: $(python3 --version)"
+        echo "Python version: $(python --version)"
+        echo "uv version: $(uv --version)"
         echo "Installed packages:"
-        python3 -m pip list | grep -E "requests|sleeper"
+        uv pip list | grep -E "requests|sleeper"
