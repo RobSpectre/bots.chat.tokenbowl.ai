@@ -217,15 +217,104 @@ The following starters are projected to score ZERO POINTS:
 ⏰ Please update your lineup before game time!
 ```
 
-### 4. News Bot (Coming Soon)
+### 4. Sleeper Big Plays Alerts Bot
+
+Monitors player performances during games and posts alerts when players from league rosters achieve significant scoring milestones. Tracks high-scoring performances in real-time during game days.
+
+**Features:**
+- Monitors all players on league rosters during games
+- Tracks player scores from live matchup data
+- Posts alerts when players cross scoring thresholds:
+  - 20+ points: HOT PERFORMANCE
+  - 30+ points: EXPLOSIVE GAME
+  - 40+ points: MONSTER PERFORMANCE
+  - 50+ points: LEGENDARY GAME
+- Only alerts once per threshold per player per week
+- Runs during game days to catch performances as they happen
+
+**Setup:**
+
+Same as other bots - install dependencies and register for an API key.
+
+**Usage:**
+
+```bash
+python sleeper_big_plays_alerts.py LEAGUE_ID --api-key YOUR_API_KEY [options]
+```
+
+**Arguments:**
+- `LEAGUE_ID` (required) - Your Sleeper league ID
+- `--api-key` (required) - Your Token Bowl API key
+
+**Options:**
+- `--week WEEK` - Check a specific week (default: current NFL week)
+- `--big-plays-file FILE` - Path to JSON file storing alerted big plays (default: seen_big_plays.json)
+
+**First Run Behavior:**
+
+On the first run (when the data file doesn't exist), the bot will initialize tracking without sending any alerts. This prevents spam from alerting on all existing performances. Subsequent runs will only alert on new milestone achievements.
+
+**Preventing Duplicate Alerts:**
+
+The bot tracks which scoring thresholds have been alerted for each player each week. You can run it multiple times during game day (recommended every 15-30 minutes) and it will only alert when a player crosses a new threshold for the first time.
+
+**Examples:**
+
+```bash
+# Check current week's performances
+python sleeper_big_plays_alerts.py 123456789 --api-key YOUR_API_KEY
+
+# Check performances for week 5
+python sleeper_big_plays_alerts.py 123456789 --api-key YOUR_API_KEY --week 5
+
+# Use custom tracking file
+python sleeper_big_plays_alerts.py 123456789 --api-key YOUR_API_KEY --big-plays-file data/big_plays.json
+```
+
+**When to Run:**
+
+Run this bot **during game days** to catch big performances as they happen. Recommended schedule:
+
+```bash
+# Run every 15 minutes on Sundays during game time (1 PM - 11 PM ET)
+*/15 13-23 * * 0 cd /path/to/bots.chat.tokenbowl.ai && source .venv/bin/activate && python sleeper_big_plays_alerts.py 123456789 --api-key YOUR_API_KEY >> logs/big_plays.log 2>&1
+
+# Run every 15 minutes on Thursdays during TNF (8 PM - 11 PM ET)
+*/15 20-23 * * 4 cd /path/to/bots.chat.tokenbowl.ai && source .venv/bin/activate && python sleeper_big_plays_alerts.py 123456789 --api-key YOUR_API_KEY >> logs/big_plays.log 2>&1
+
+# Run every 15 minutes on Mondays during MNF (8 PM - 11 PM ET)
+*/15 20-23 * * 1 cd /path/to/bots.chat.tokenbowl.ai && source .venv/bin/activate && python sleeper_big_plays_alerts.py 123456789 --api-key YOUR_API_KEY >> logs/big_plays.log 2>&1
+```
+
+**Alert Format:**
+
+```
+🔥 HOT PERFORMANCE 🔥
+**Saquon Barkley** (PHI - RB)
+Week 8: 24.3 points
+
+💥 EXPLOSIVE GAME 💥
+**Ja'Marr Chase** (CIN - WR)
+Week 8: 32.8 points
+
+🚀 MONSTER PERFORMANCE 🚀
+**Lamar Jackson** (BAL - QB)
+Week 8: 41.2 points
+```
+
+**How It Works:**
+
+The bot uses the Sleeper matchups endpoint to get real-time player scores during games. As players accumulate fantasy points, the bot checks if they've crossed any scoring thresholds and alerts the group chat. Each player can trigger multiple alerts in a game if they cross multiple thresholds (e.g., first alert at 20 points, second at 30 points).
+
+### 5. News Bot (Coming Soon)
 
 Discovers timely fantasy football news with league-wide impact.
 
-### 5. Predictions Bot (Coming Soon)
+### 6. Predictions Bot (Coming Soon)
 
 Analyzes matchups and predicts winners with detailed breakdowns.
 
-### 6. Trends Bot (Coming Soon)
+### 7. Trends Bot (Coming Soon)
 
 Identifies fascinating trends and storylines in league performance.
 
@@ -236,6 +325,7 @@ bots.chat.tokenbowl.ai/
 ├── sleeper_transaction_sync.py    # Transaction monitoring bot
 ├── sleeper_injury_alerts.py       # Injury alerts bot
 ├── sleeper_zero_points_alerts.py  # Zero points lineup checker
+├── sleeper_big_plays_alerts.py    # Big plays performance alerts
 ├── requirements.txt                # Python dependencies
 ├── .env.example                    # Configuration template
 ├── .gitignore                     # Git ignore patterns
