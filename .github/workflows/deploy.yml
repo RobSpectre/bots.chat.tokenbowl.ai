@@ -29,8 +29,7 @@ jobs:
           git fetch --all
           git reset --hard origin/main
         else
-          echo "Cloning repository (removing existing directory if needed)..."
-          rm -rf ${{ env.DEPLOY_PATH }}
+          echo "Cloning repository..."
           git clone https://github.com/${{ github.repository }}.git ${{ env.DEPLOY_PATH }}
           cd ${{ env.DEPLOY_PATH }}
         fi
