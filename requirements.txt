@@ -1,0 +1,8 @@
+# Sleeper API wrapper for fetching league data
+sleeper-api-wrapper>=1.0.0
+
+# HTTP requests for webhook posting
+requests>=2.31.0
+
+# Environment variable management (optional)
+python-dotenv>=1.0.0

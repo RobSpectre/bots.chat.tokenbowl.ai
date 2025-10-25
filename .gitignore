@@ -148,3 +148,8 @@ cython_debug/
 
 # Ruff cache
 .ruff_cache/
+
+# Bot runtime files
+seen_transactions.json
+seen_injuries.json
+logs/
