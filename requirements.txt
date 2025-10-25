@@ -6,3 +6,4 @@ requests>=2.31.0
 
 # Environment variable management (optional)
 python-dotenv>=1.0.0
+token-bowl-chat>=1.1.0
