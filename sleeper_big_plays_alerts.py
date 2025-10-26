@@ -40,7 +40,8 @@ class SleeperBigPlaysAlerts:
         chat_api_url: str,
         chat_api_key: str,
         week: int = None,
-        big_plays_file: str = "seen_big_plays.json"
+        big_plays_file: str = "seen_big_plays.json",
+        players_data_file: str = "data/nfl_players.json"
     ):
         """
         Initialize the big plays alerts.
@@ -51,12 +52,14 @@ class SleeperBigPlaysAlerts:
             chat_api_key: The API key for authentication
             week: Specific week to check (if None, uses current week)
             big_plays_file: Path to JSON file storing alerted big plays
+            players_data_file: Path to JSON file storing NFL player data
         """
         self.league_id = league_id
         self.chat_api_url = chat_api_url
         self.chat_api_key = chat_api_key
         self.target_week = week
         self.big_plays_file = Path(big_plays_file)
+        self.players_data_file = Path(players_data_file)
         self.league = League(league_id)
         self.players_api = Players()
 
@@ -179,16 +182,85 @@ class SleeperBigPlaysAlerts:
             print(f"Error fetching matchups for week {week}: {e}")
             return []
 
+    def save_players_data(self, players_data: Dict):
+        """
+        Save NFL player data to JSON file.
+
+        Args:
+            players_data: Dict mapping player_id to player data
+        """
+        # Ensure data directory exists
+        self.players_data_file.parent.mkdir(parents=True, exist_ok=True)
+
+        data = {
+            'players': players_data,
+            'last_updated': datetime.now().isoformat()
+        }
+
+        with open(self.players_data_file, 'w') as f:
+            json.dump(data, f, indent=2)
+
+        print(f"Saved player data to {self.players_data_file}")
+
+    def load_players_data(self, max_age_hours: int = 24) -> Dict:
+        """
+        Load NFL player data from JSON file if it exists and is recent.
+
+        Args:
+            max_age_hours: Maximum age of cached data in hours (default: 24)
+
+        Returns:
+            Dict mapping player_id to player data, or empty dict if cache is stale/missing
+        """
+        if not self.players_data_file.exists():
+            return {}
+
+        try:
+            with open(self.players_data_file, 'r') as f:
+                data = json.load(f)
+
+            # Check if data is recent enough
+            last_updated_str = data.get('last_updated')
+            if last_updated_str:
+                last_updated = datetime.fromisoformat(last_updated_str)
+                age_hours = (datetime.now() - last_updated).total_seconds() / 3600
+
+                if age_hours <= max_age_hours:
+                    print(f"Loaded cached player data from {self.players_data_file} (age: {age_hours:.1f} hours)")
+                    return data.get('players', {})
+                else:
+                    print(f"Cached player data is stale (age: {age_hours:.1f} hours)")
+                    return {}
+            else:
+                print("Cached player data has no timestamp")
+                return {}
+
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Warning: Could not parse {self.players_data_file}: {e}")
+            return {}
+
     def get_all_players(self) -> Dict:
         """
-        Get all NFL player data from Sleeper API.
+        Get all NFL player data from Sleeper API or cached file.
 
         Returns:
             Dict mapping player_id to player data
         """
-        print("Fetching all NFL player data (this may take a moment)...")
+        # Try to load from cache first
+        cached_players = self.load_players_data()
+
+        if cached_players:
+            print(f"Using cached data for {len(cached_players)} players")
+            return cached_players
+
+        # If no cache or cache is stale, fetch fresh data
+        print("Fetching all NFL player data from API (this may take a moment)...")
         all_players = self.players_api.get_all_players()
-        print(f"Loaded data for {len(all_players)} players")
+        print(f"Loaded data for {len(all_players)} players from API")
+
+        # Save to cache
+        self.save_players_data(all_players)
+
         return all_players
 
     def get_player_scores(self, matchups: List[Dict]) -> Dict[str, float]:
@@ -457,6 +529,11 @@ def main():
         default='seen_big_plays.json',
         help='Path to JSON file storing alerted big plays (default: seen_big_plays.json)'
     )
+    parser.add_argument(
+        '--players-data-file',
+        default='data/nfl_players.json',
+        help='Path to JSON file storing NFL player data (default: data/nfl_players.json)'
+    )
 
     args = parser.parse_args()
 
@@ -468,7 +545,8 @@ def main():
         chat_api_url=CHAT_API_URL,
         chat_api_key=chat_api_key,
         week=args.week,
-        big_plays_file=args.big_plays_file
+        big_plays_file=args.big_plays_file,
+        players_data_file=args.players_data_file
     )
 
     checker.check_big_plays()
